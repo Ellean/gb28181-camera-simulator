@@ -186,6 +186,34 @@ class XMLBuilder:
                 ET.SubElement(item, "FileSize").text = record.get("file_size", "0")
         
         return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
+    
+    @staticmethod
+    def build_alarm_notification(device_id: str, alarm_info: Dict[str, Any]) -> str:
+        """
+        构建报警通知消息（用于报警类设备）
+        
+        Args:
+            device_id: 设备ID
+            alarm_info: 报警信息字典
+            
+        Returns:
+            str: XML 字符串
+        """
+        root = ET.Element("Notify")
+        
+        ET.SubElement(root, "CmdType").text = "Alarm"
+        ET.SubElement(root, "SN").text = str(int(datetime.now().timestamp() * 1000))
+        ET.SubElement(root, "DeviceID").text = device_id
+        ET.SubElement(root, "AlarmPriority").text = str(alarm_info.get("alarm_priority", 3))
+        ET.SubElement(root, "AlarmMethod").text = alarm_info.get("alarm_method", "1")
+        ET.SubElement(root, "AlarmTime").text = alarm_info.get("alarm_time", "")
+        ET.SubElement(root, "AlarmDescription").text = alarm_info.get("alarm_description", "Alarm")
+        
+        # 可选：添加报警类型
+        if "alarm_type" in alarm_info:
+            ET.SubElement(root, "AlarmType").text = alarm_info["alarm_type"]
+        
+        return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
 
 
 def parse_xml_message(xml_str: str) -> Dict[str, Any]:

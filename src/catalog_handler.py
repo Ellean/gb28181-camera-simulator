@@ -88,13 +88,32 @@ class CatalogHandler:
             
             logger.info(f"Processing DeviceInfo query with SN={sn}")
             
+            # 根据设备类型设置设备能力
             device_info = {
                 "name": self.device_name,
                 "manufacturer": self.manufacturer,
                 "model": self.model,
                 "firmware": self.firmware,
-                "channel_count": len(self.channels)
+                "channel_count": len(self.channels),
+                "device_type": self.device_type
             }
+            
+            # 设备类型特定属性
+            if self.device_type in ["IPC", "摄像机", "Camera"]:
+                device_info["ptz_support"] = any(ch.get("ptz_enabled", False) for ch in self.channels)
+            elif self.device_type in ["DVR", "NVR"]:
+                device_info["recording_support"] = True
+                device_info["ptz_support"] = any(ch.get("ptz_enabled", False) for ch in self.channels)
+            elif self.device_type in ["报警控制器", "报警输入设备"]:
+                device_info["alarm_support"] = True
+            elif self.device_type == "报警输出设备":
+                device_info["alarm_output_support"] = True
+            elif self.device_type in ["语音输入设备", "语音输出设备"]:
+                device_info["audio_support"] = True
+            elif self.device_type == "显示器":
+                device_info["display_support"] = True
+            elif self.device_type == "移动传输设备":
+                device_info["mobile_support"] = True
             
             response = XMLBuilder.build_device_info_response(
                 device_id=self.device_id,
@@ -234,3 +253,67 @@ class CatalogHandler:
         
         logger.info(f"Generated {len(records)} mock record files for device {self.device_id}")
         return records
+    
+    def send_alarm_notification(self, alarm_type: str = "Motion", alarm_priority: int = 3) -> str:
+        """
+        发送报警通知（用于报警类设备）
+        
+        Args:
+            alarm_type: 报警类型 (Motion, IO, Temperature, etc.)
+            alarm_priority: 报警优先级 (1-4, 1=highest)
+            
+        Returns:
+            str: 报警通知 XML
+        """
+        if self.device_type not in ["报警控制器", "报警输入设备", "报警输出设备"]:
+            logger.warning(f"Device type {self.device_type} does not support alarm notifications")
+            return None
+        
+        # 构建报警通知 XML
+        alarm_info = {
+            "alarm_type": alarm_type,
+            "alarm_priority": alarm_priority,
+            "alarm_method": "1",  # 1=报警, 2=故障
+            "alarm_time": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            "alarm_description": f"{alarm_type} alarm triggered"
+        }
+        
+        response = XMLBuilder.build_alarm_notification(
+            device_id=self.device_id,
+            alarm_info=alarm_info
+        )
+        
+        logger.info(f"Alarm notification generated for device {self.device_id}")
+        return response
+    
+    def get_device_capabilities(self) -> dict:
+        """
+        获取设备能力集（根据设备类型）
+        
+        Returns:
+            dict: 设备能力描述
+        """
+        capabilities = {
+            "device_type": self.device_type,
+            "basic": ["Catalog", "DeviceInfo", "DeviceStatus", "Keepalive"]
+        }
+        
+        # 根据设备类型添加能力
+        if self.device_type in ["IPC", "摄像机", "Camera", "DVR", "NVR", "移动传输设备"]:
+            capabilities["video"] = ["RealPlay", "RTP", "PS"]
+            if any(ch.get("ptz_enabled", False) for ch in self.channels):
+                capabilities["ptz"] = ["PTZControl"]
+        
+        if self.device_type in ["DVR", "NVR"]:
+            capabilities["recording"] = ["RecordInfo", "Playback"]
+        
+        if self.device_type in ["报警控制器", "报警输入设备", "报警输出设备"]:
+            capabilities["alarm"] = ["AlarmNotify", "AlarmQuery"]
+        
+        if self.device_type in ["语音输入设备", "语音输出设备"]:
+            capabilities["audio"] = ["AudioBroadcast", "AudioTalk"]
+        
+        if self.device_type == "显示器":
+            capabilities["display"] = ["VideoDisplay"]
+        
+        return capabilities
