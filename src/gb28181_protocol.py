@@ -84,6 +84,13 @@ DEVICE_TYPE_CODE_TO_NAME = {
     DEVICE_TYPE_MOBILE: "移动传输设备",
 }
 
+# 设备类型分类（用于功能判断）
+VIDEO_DEVICE_TYPES = ["IPC", "摄像机", "Camera", "DVR", "NVR", "移动传输设备"]
+RECORDING_DEVICE_TYPES = ["DVR", "NVR"]
+ALARM_DEVICE_TYPES = ["报警控制器", "报警输入设备", "报警输出设备"]
+AUDIO_DEVICE_TYPES = ["语音输入设备", "语音输出设备"]
+DISPLAY_DEVICE_TYPES = ["显示器"]
+
 # 媒体传输协议
 TRANSPORT_UDP = "UDP"
 TRANSPORT_TCP_PASSIVE = "TCP/RTP/AVP"

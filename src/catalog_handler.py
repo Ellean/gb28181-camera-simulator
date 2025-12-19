@@ -6,7 +6,11 @@ import logging
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
 from xml_builder import XMLBuilder, parse_xml_message
-from gb28181_protocol import get_device_type_code, extract_device_type_from_id
+from gb28181_protocol import (
+    get_device_type_code, extract_device_type_from_id,
+    VIDEO_DEVICE_TYPES, RECORDING_DEVICE_TYPES, ALARM_DEVICE_TYPES,
+    AUDIO_DEVICE_TYPES, DISPLAY_DEVICE_TYPES
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,25 +98,30 @@ class CatalogHandler:
                 "manufacturer": self.manufacturer,
                 "model": self.model,
                 "firmware": self.firmware,
-                "channel_count": len(self.channels),
-                "device_type": self.device_type
+                "channel_count": len(self.channels)
             }
             
             # 设备类型特定属性
-            if self.device_type in ["IPC", "摄像机", "Camera"]:
-                device_info["ptz_support"] = any(ch.get("ptz_enabled", False) for ch in self.channels)
-            elif self.device_type in ["DVR", "NVR"]:
+            if self.device_type in VIDEO_DEVICE_TYPES:
+                if self.device_type not in ["显示器"]:
+                    device_info["ptz_support"] = any(ch.get("ptz_enabled", False) for ch in self.channels)
+            
+            if self.device_type in RECORDING_DEVICE_TYPES:
                 device_info["recording_support"] = True
-                device_info["ptz_support"] = any(ch.get("ptz_enabled", False) for ch in self.channels)
-            elif self.device_type in ["报警控制器", "报警输入设备"]:
-                device_info["alarm_support"] = True
-            elif self.device_type == "报警输出设备":
-                device_info["alarm_output_support"] = True
-            elif self.device_type in ["语音输入设备", "语音输出设备"]:
+            
+            if self.device_type in ALARM_DEVICE_TYPES:
+                if self.device_type == "报警输出设备":
+                    device_info["alarm_output_support"] = True
+                else:
+                    device_info["alarm_support"] = True
+            
+            if self.device_type in AUDIO_DEVICE_TYPES:
                 device_info["audio_support"] = True
-            elif self.device_type == "显示器":
+            
+            if self.device_type in DISPLAY_DEVICE_TYPES:
                 device_info["display_support"] = True
-            elif self.device_type == "移动传输设备":
+            
+            if self.device_type == "移动传输设备":
                 device_info["mobile_support"] = True
             
             response = XMLBuilder.build_device_info_response(
@@ -176,7 +185,7 @@ class CatalogHandler:
             logger.info(f"Processing RecordInfo query with SN={sn}, StartTime={start_time}, EndTime={end_time}")
             
             # 检查设备类型，只有 NVR/DVR 支持录像查询
-            if self.device_type not in ["NVR", "DVR"]:
+            if self.device_type not in RECORDING_DEVICE_TYPES:
                 logger.warning(f"Device type {self.device_type} does not support RecordInfo query")
                 # 返回空录像列表
                 response = XMLBuilder.build_record_info_response(
@@ -265,7 +274,7 @@ class CatalogHandler:
         Returns:
             str: 报警通知 XML
         """
-        if self.device_type not in ["报警控制器", "报警输入设备", "报警输出设备"]:
+        if self.device_type not in ALARM_DEVICE_TYPES:
             logger.warning(f"Device type {self.device_type} does not support alarm notifications")
             return None
         
@@ -299,21 +308,21 @@ class CatalogHandler:
         }
         
         # 根据设备类型添加能力
-        if self.device_type in ["IPC", "摄像机", "Camera", "DVR", "NVR", "移动传输设备"]:
+        if self.device_type in VIDEO_DEVICE_TYPES:
             capabilities["video"] = ["RealPlay", "RTP", "PS"]
             if any(ch.get("ptz_enabled", False) for ch in self.channels):
                 capabilities["ptz"] = ["PTZControl"]
         
-        if self.device_type in ["DVR", "NVR"]:
+        if self.device_type in RECORDING_DEVICE_TYPES:
             capabilities["recording"] = ["RecordInfo", "Playback"]
         
-        if self.device_type in ["报警控制器", "报警输入设备", "报警输出设备"]:
+        if self.device_type in ALARM_DEVICE_TYPES:
             capabilities["alarm"] = ["AlarmNotify", "AlarmQuery"]
         
-        if self.device_type in ["语音输入设备", "语音输出设备"]:
+        if self.device_type in AUDIO_DEVICE_TYPES:
             capabilities["audio"] = ["AudioBroadcast", "AudioTalk"]
         
-        if self.device_type == "显示器":
+        if self.device_type in DISPLAY_DEVICE_TYPES:
             capabilities["display"] = ["VideoDisplay"]
         
         return capabilities

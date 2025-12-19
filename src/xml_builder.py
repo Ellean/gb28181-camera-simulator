@@ -206,7 +206,9 @@ class XMLBuilder:
         ET.SubElement(root, "DeviceID").text = device_id
         ET.SubElement(root, "AlarmPriority").text = str(alarm_info.get("alarm_priority", 3))
         ET.SubElement(root, "AlarmMethod").text = alarm_info.get("alarm_method", "1")
-        ET.SubElement(root, "AlarmTime").text = alarm_info.get("alarm_time", "")
+        # Use current time if alarm_time not provided
+        alarm_time = alarm_info.get("alarm_time", datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
+        ET.SubElement(root, "AlarmTime").text = alarm_time
         ET.SubElement(root, "AlarmDescription").text = alarm_info.get("alarm_description", "Alarm")
         
         # 可选：添加报警类型
