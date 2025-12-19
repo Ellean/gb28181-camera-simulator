@@ -4,10 +4,34 @@ Web 控制界面
 """
 import logging
 import threading
+import os
+import yaml
+import re
 from flask import Flask, render_template_string, jsonify, request
 from typing import List, Dict, Any
+from functools import wraps
 
 logger = logging.getLogger(__name__)
+
+
+def require_auth(f):
+    """简单的认证装饰器 - 检查配置的访问令牌"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # 获取配置的访问令牌
+        auth_token = os.getenv('WEB_AUTH_TOKEN', '')
+        
+        # 如果没有配置令牌，则不需要认证
+        if not auth_token:
+            return f(*args, **kwargs)
+        
+        # 检查请求头中的令牌
+        provided_token = request.headers.get('X-Auth-Token', '')
+        if provided_token != auth_token:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 class WebInterface:
@@ -123,6 +147,182 @@ class WebInterface:
                     'running': self.simulator.running
                 }
             })
+        
+        @self.app.route('/api/config/devices', methods=['GET'])
+        def get_device_configs():
+            """获取设备配置列表"""
+            try:
+                config_path = self.simulator.devices_config_path
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = yaml.safe_load(f)
+                
+                devices = config.get('devices', [])
+                return jsonify({
+                    'success': True,
+                    'devices': devices,
+                    'config_path': config_path
+                })
+            except Exception as e:
+                logger.error(f"Error reading device config: {e}", exc_info=True)
+                return jsonify({'success': False, 'error': str(e)}), 500
+        
+        @self.app.route('/api/config/device', methods=['POST'])
+        @require_auth
+        def add_device_config():
+            """添加设备配置"""
+            try:
+                device_data = request.get_json()
+                
+                # 验证必需字段
+                required_fields = ['device_id', 'name', 'sip_user', 'sip_password']
+                for field in required_fields:
+                    if field not in device_data:
+                        return jsonify({'success': False, 'error': f'Missing field: {field}'}), 400
+                
+                # 验证设备ID格式（20位数字）
+                if not re.match(r'^\d{20}$', device_data['device_id']):
+                    return jsonify({'success': False, 'error': 'Invalid device_id format (must be 20 digits)'}), 400
+                
+                # 读取当前配置
+                config_path = self.simulator.devices_config_path
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = yaml.safe_load(f)
+                
+                devices = config.get('devices', [])
+                
+                # 检查设备ID是否已存在
+                if any(d['device_id'] == device_data['device_id'] for d in devices):
+                    return jsonify({'success': False, 'error': 'Device ID already exists'}), 400
+                
+                # 设置默认值
+                if 'device_type' not in device_data:
+                    device_data['device_type'] = 'IPC'
+                if 'manufacturer' not in device_data:
+                    device_data['manufacturer'] = 'SimCamera'
+                if 'model' not in device_data:
+                    device_data['model'] = 'SC-2000'
+                if 'firmware' not in device_data:
+                    device_data['firmware'] = 'V1.0.0'
+                if 'channels' not in device_data:
+                    device_data['channels'] = [{
+                        'channel_id': device_data['device_id'],
+                        'name': '主码流',
+                        'ptz_enabled': False
+                    }]
+                
+                # 添加新设备
+                devices.append(device_data)
+                config['devices'] = devices
+                
+                # 写入配置文件（先写入临时文件，然后重命名）
+                temp_path = config_path + '.tmp'
+                with open(temp_path, 'w', encoding='utf-8') as f:
+                    yaml.safe_dump(config, f, allow_unicode=True, default_flow_style=False)
+                
+                # 原子性替换
+                os.replace(temp_path, config_path)
+                
+                logger.info(f"Device {device_data['device_id']} added to configuration")
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Device configuration added successfully',
+                    'note': 'Restart simulator to apply changes'
+                })
+                
+            except Exception as e:
+                logger.error(f"Error adding device config: {e}", exc_info=True)
+                return jsonify({'success': False, 'error': str(e)}), 500
+        
+        @self.app.route('/api/config/device/<device_id>', methods=['PUT'])
+        @require_auth
+        def update_device_config(device_id):
+            """更新设备配置"""
+            try:
+                device_data = request.get_json()
+                
+                # 读取当前配置
+                config_path = self.simulator.devices_config_path
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = yaml.safe_load(f)
+                
+                devices = config.get('devices', [])
+                
+                # 查找设备
+                device_index = None
+                for i, d in enumerate(devices):
+                    if d['device_id'] == device_id:
+                        device_index = i
+                        break
+                
+                if device_index is None:
+                    return jsonify({'success': False, 'error': 'Device not found'}), 404
+                
+                # 更新设备配置（保留device_id）
+                device_data['device_id'] = device_id
+                devices[device_index] = device_data
+                config['devices'] = devices
+                
+                # 写入配置文件（先写入临时文件，然后重命名）
+                temp_path = config_path + '.tmp'
+                with open(temp_path, 'w', encoding='utf-8') as f:
+                    yaml.safe_dump(config, f, allow_unicode=True, default_flow_style=False)
+                
+                # 原子性替换
+                os.replace(temp_path, config_path)
+                
+                logger.info(f"Device {device_id} configuration updated")
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Device configuration updated successfully',
+                    'note': 'Restart simulator to apply changes'
+                })
+                
+            except Exception as e:
+                logger.error(f"Error updating device config: {e}", exc_info=True)
+                return jsonify({'success': False, 'error': str(e)}), 500
+        
+        @self.app.route('/api/config/device/<device_id>', methods=['DELETE'])
+        @require_auth
+        def delete_device_config(device_id):
+            """删除设备配置"""
+            try:
+                # 读取当前配置
+                config_path = self.simulator.devices_config_path
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = yaml.safe_load(f)
+                
+                devices = config.get('devices', [])
+                
+                # 过滤掉要删除的设备
+                original_count = len(devices)
+                devices = [d for d in devices if d['device_id'] != device_id]
+                
+                if len(devices) == original_count:
+                    return jsonify({'success': False, 'error': 'Device not found'}), 404
+                
+                config['devices'] = devices
+                
+                # 写入配置文件（先写入临时文件，然后重命名）
+                temp_path = config_path + '.tmp'
+                with open(temp_path, 'w', encoding='utf-8') as f:
+                    yaml.safe_dump(config, f, allow_unicode=True, default_flow_style=False)
+                
+                # 原子性替换
+                os.replace(temp_path, config_path)
+                
+                logger.info(f"Device {device_id} deleted from configuration")
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Device configuration deleted successfully',
+                    'note': 'Restart simulator to apply changes'
+                })
+                
+            except Exception as e:
+                logger.error(f"Error deleting device config: {e}", exc_info=True)
+                return jsonify({'success': False, 'error': str(e)}), 500
     
     def _find_client(self, device_id: str):
         """查找客户端"""
@@ -314,6 +514,144 @@ HTML_TEMPLATE = """
             background: #667eea;
             color: white;
         }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .tab {
+            padding: 15px 25px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .tab:hover {
+            color: #667eea;
+            background: #f5f5f5;
+        }
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-header h3 {
+            margin: 0;
+            color: #333;
+        }
+        .close-btn {
+            background: transparent;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        .close-btn:hover {
+            color: #333;
+        }
+        .config-list {
+            list-style: none;
+            padding: 0;
+        }
+        .config-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .config-item-info {
+            flex: 1;
+        }
+        .config-item-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        .warning-note {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            border: 1px solid #ffeaa7;
+        }
+        .warning-note strong {
+            display: block;
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 <body>
@@ -338,14 +676,101 @@ HTML_TEMPLATE = """
             </div>
         </div>
         
-        <div class="devices">
-            <h2 style="margin-bottom: 20px;">
-                设备列表
-                <button class="btn refresh-btn" onclick="loadDevices()">🔄 刷新</button>
-            </h2>
-            <div id="devices-container" class="loading">
-                加载中...
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('devices')">运行状态</button>
+            <button class="tab" onclick="switchTab('config')">设备配置</button>
+        </div>
+        
+        <div id="devices-tab" class="tab-content active">
+            <div class="devices">
+                <h2 style="margin-bottom: 20px;">
+                    设备列表
+                    <button class="btn refresh-btn" onclick="loadDevices()">🔄 刷新</button>
+                </h2>
+                <div id="devices-container" class="loading">
+                    加载中...
+                </div>
             </div>
+        </div>
+        
+        <div id="config-tab" class="tab-content">
+            <div class="devices">
+                <div class="warning-note">
+                    <strong>⚠️ 安全提示</strong>
+                    配置修改操作会直接写入文件系统。如果启用了 WEB_AUTH_TOKEN 环境变量，需要在请求头中提供认证令牌。修改后需要重启模拟器才能生效。
+                </div>
+                
+                <h2 style="margin-bottom: 20px;">
+                    设备配置管理
+                    <button class="btn btn-success refresh-btn" onclick="loadConfigs()">🔄 刷新</button>
+                    <button class="btn btn-primary refresh-btn" style="margin-right: 10px;" onclick="showAddModal()">➕ 添加设备</button>
+                </h2>
+                
+                <div id="configs-container" class="loading">
+                    加载中...
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 添加/编辑设备模态框 -->
+    <div id="deviceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">添加设备</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="deviceForm">
+                <div class="form-group">
+                    <label>设备 ID *</label>
+                    <input type="text" id="device_id" name="device_id" required pattern="\\d{20}" 
+                           placeholder="20位数字" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label>设备名称 *</label>
+                    <input type="text" id="name" name="name" required placeholder="例如：摄像头-1">
+                </div>
+                <div class="form-group">
+                    <label>设备类型</label>
+                    <select id="device_type" name="device_type">
+                        <option value="IPC">IPC - 网络摄像机</option>
+                        <option value="摄像机">摄像机</option>
+                        <option value="DVR">DVR - 数字视频录像机</option>
+                        <option value="NVR">NVR - 网络视频录像机</option>
+                        <option value="报警控制器">报警控制器</option>
+                        <option value="显示器">显示器</option>
+                        <option value="报警输入设备">报警输入设备</option>
+                        <option value="报警输出设备">报警输出设备</option>
+                        <option value="语音输入设备">语音输入设备</option>
+                        <option value="语音输出设备">语音输出设备</option>
+                        <option value="移动传输设备">移动传输设备</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>SIP 用户名 *</label>
+                    <input type="text" id="sip_user" name="sip_user" required placeholder="通常与设备ID相同">
+                </div>
+                <div class="form-group">
+                    <label>SIP 密码 *</label>
+                    <input type="password" id="sip_password" name="sip_password" required placeholder="SIP 认证密码">
+                </div>
+                <div class="form-group">
+                    <label>制造商</label>
+                    <input type="text" id="manufacturer" name="manufacturer" placeholder="默认: SimCamera">
+                </div>
+                <div class="form-group">
+                    <label>型号</label>
+                    <input type="text" id="model" name="model" placeholder="默认: SC-2000">
+                </div>
+                <div class="form-group">
+                    <label>固件版本</label>
+                    <input type="text" id="firmware" name="firmware" placeholder="默认: V1.0.0">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <button type="button" class="btn" onclick="closeModal()">取消</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -493,6 +918,200 @@ HTML_TEMPLATE = """
                 alert('操作失败: ' + error.message);
             }
         }
+
+        // ========== 配置管理功能 ==========
+        let currentEditDevice = null;
+        const authToken = localStorage.getItem('authToken') || '';
+
+        function switchTab(tabName) {
+            // 切换标签
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // 加载对应内容
+            if (tabName === 'config') {
+                loadConfigs();
+            }
+        }
+
+        async function loadConfigs() {
+            try {
+                const response = await fetch('/api/config/devices');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayConfigs(data.devices);
+                }
+            } catch (error) {
+                console.error('Error loading configs:', error);
+                document.getElementById('configs-container').innerHTML = 
+                    '<div class="error">加载配置失败: ' + error.message + '</div>';
+            }
+        }
+
+        function displayConfigs(devices) {
+            const container = document.getElementById('configs-container');
+            
+            if (devices.length === 0) {
+                container.innerHTML = '<p class="loading">没有设备配置</p>';
+                return;
+            }
+            
+            container.innerHTML = '<ul class="config-list">' + devices.map(device => `
+                <li class="config-item">
+                    <div class="config-item-info">
+                        <strong>${device.name}</strong> (${device.device_type || 'IPC'})<br>
+                        <small>ID: ${device.device_id}</small>
+                    </div>
+                    <div class="config-item-actions">
+                        <button class="btn btn-primary btn-small" onclick='editConfig(${JSON.stringify(device)})'>编辑</button>
+                        <button class="btn btn-danger btn-small" onclick="deleteConfig('${device.device_id}', '${device.name}')">删除</button>
+                    </div>
+                </li>
+            `).join('') + '</ul>';
+        }
+
+        function showAddModal() {
+            currentEditDevice = null;
+            document.getElementById('modal-title').textContent = '添加设备';
+            document.getElementById('deviceForm').reset();
+            document.getElementById('device_id').disabled = false;
+            document.getElementById('deviceModal').classList.add('active');
+        }
+
+        function editConfig(device) {
+            currentEditDevice = device.device_id;
+            document.getElementById('modal-title').textContent = '编辑设备';
+            
+            // 填充表单
+            document.getElementById('device_id').value = device.device_id;
+            document.getElementById('device_id').disabled = true;
+            document.getElementById('name').value = device.name;
+            document.getElementById('device_type').value = device.device_type || 'IPC';
+            document.getElementById('sip_user').value = device.sip_user;
+            document.getElementById('sip_password').value = device.sip_password;
+            document.getElementById('manufacturer').value = device.manufacturer || '';
+            document.getElementById('model').value = device.model || '';
+            document.getElementById('firmware').value = device.firmware || '';
+            
+            document.getElementById('deviceModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('deviceModal').classList.remove('active');
+            document.getElementById('deviceForm').reset();
+            currentEditDevice = null;
+        }
+
+        async function saveDevice(formData) {
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            // 添加认证令牌（如果有）
+            if (authToken) {
+                headers['X-Auth-Token'] = authToken;
+            }
+            
+            try {
+                let response;
+                if (currentEditDevice) {
+                    // 更新设备
+                    response = await fetch(`/api/config/device/${currentEditDevice}`, {
+                        method: 'PUT',
+                        headers: headers,
+                        body: JSON.stringify(formData)
+                    });
+                } else {
+                    // 添加设备
+                    response = await fetch('/api/config/device', {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify(formData)
+                    });
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(data.message + '\n\n' + (data.note || ''));
+                    closeModal();
+                    loadConfigs();
+                } else {
+                    if (response.status === 401) {
+                        const token = prompt('需要认证令牌。请输入 WEB_AUTH_TOKEN：');
+                        if (token) {
+                            localStorage.setItem('authToken', token);
+                            location.reload();
+                        }
+                    } else {
+                        alert('保存失败: ' + data.error);
+                    }
+                }
+            } catch (error) {
+                alert('操作失败: ' + error.message);
+            }
+        }
+
+        async function deleteConfig(deviceId, deviceName) {
+            if (!confirm(`确定要删除设备 "${deviceName}" 吗？\n\n此操作将修改配置文件，需要重启模拟器才能生效。`)) {
+                return;
+            }
+            
+            const headers = {};
+            if (authToken) {
+                headers['X-Auth-Token'] = authToken;
+            }
+            
+            try {
+                const response = await fetch(`/api/config/device/${deviceId}`, {
+                    method: 'DELETE',
+                    headers: headers
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(data.message + '\n\n' + (data.note || ''));
+                    loadConfigs();
+                } else {
+                    if (response.status === 401) {
+                        const token = prompt('需要认证令牌。请输入 WEB_AUTH_TOKEN：');
+                        if (token) {
+                            localStorage.setItem('authToken', token);
+                            location.reload();
+                        }
+                    } else {
+                        alert('删除失败: ' + data.error);
+                    }
+                }
+            } catch (error) {
+                alert('操作失败: ' + error.message);
+            }
+        }
+
+        // 表单提交处理
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('deviceForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const formData = {
+                    device_id: document.getElementById('device_id').value,
+                    name: document.getElementById('name').value,
+                    device_type: document.getElementById('device_type').value,
+                    sip_user: document.getElementById('sip_user').value,
+                    sip_password: document.getElementById('sip_password').value,
+                    manufacturer: document.getElementById('manufacturer').value || 'SimCamera',
+                    model: document.getElementById('model').value || 'SC-2000',
+                    firmware: document.getElementById('firmware').value || 'V1.0.0'
+                };
+                
+                saveDevice(formData);
+            });
+        });
 
         // 页面加载时执行
         document.addEventListener('DOMContentLoaded', function() {
