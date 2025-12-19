@@ -614,7 +614,15 @@ class SIPClient:
             f"Call-ID: {request_headers.get('Call-ID', '')}",
             f"CSeq: {request_headers.get('CSeq', '')}",
         ]
-        
+
+        # INVITE 的 200 OK 响应必须包含 Contact 头
+        if code == 200 and method == "INVITE":
+            contact = request_headers.get("Contact")
+            if not contact:
+                # 默认用本地地址
+                contact = f"<sip:{self.sip_user}@{self.local_ip}:{self.local_port}>"
+            lines.append(f"Contact: {contact}")
+
         if body:
             lines.extend([
                 f"Content-Type: application/sdp",
@@ -628,7 +636,7 @@ class SIPClient:
                 "",
                 ""
             ])
-        
+
         return "\r\n".join(lines)
     
     def _send_message_with_body(self, body: str, request_headers: dict):
