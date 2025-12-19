@@ -439,6 +439,8 @@ class SIPClient:
                     response_body = self.catalog_handler.handle_device_status_query(body)
                 elif cmd_type == "DeviceControl":
                     response_body = self.ptz_handler.handle_ptz_control(body)
+                elif cmd_type == "RecordInfo":
+                    response_body = self.catalog_handler.handle_record_info_query(body)
                 
                 # 发送响应消息
                 if response_body:

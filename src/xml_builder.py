@@ -145,6 +145,47 @@ class XMLBuilder:
         ET.SubElement(root, "Result").text = result
         
         return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
+    
+    @staticmethod
+    def build_record_info_response(device_id: str, sn: str, records: List[Dict[str, Any]]) -> str:
+        """
+        构建录像文件查询响应 (NVR/DVR 功能)
+        
+        Args:
+            device_id: 设备ID
+            sn: 命令序列号
+            records: 录像文件列表
+            
+        Returns:
+            str: XML 字符串
+        """
+        root = ET.Element("Response")
+        
+        ET.SubElement(root, "CmdType").text = "RecordInfo"
+        ET.SubElement(root, "SN").text = sn
+        ET.SubElement(root, "DeviceID").text = device_id
+        ET.SubElement(root, "Name").text = "RecordInfo"
+        ET.SubElement(root, "SumNum").text = str(len(records))
+        
+        if records:
+            record_list = ET.SubElement(root, "RecordList")
+            record_list.set("Num", str(len(records)))
+            
+            for record in records:
+                item = ET.SubElement(record_list, "Item")
+                ET.SubElement(item, "DeviceID").text = record.get("device_id", device_id)
+                ET.SubElement(item, "Name").text = record.get("name", "Record")
+                ET.SubElement(item, "FilePath").text = record.get("file_path", "")
+                ET.SubElement(item, "Address").text = "Address"
+                ET.SubElement(item, "StartTime").text = record.get("start_time", "")
+                ET.SubElement(item, "EndTime").text = record.get("end_time", "")
+                ET.SubElement(item, "Secrecy").text = record.get("secrecy", "0")
+                ET.SubElement(item, "Type").text = record.get("type", "time")
+                ET.SubElement(item, "RecorderID").text = device_id
+                if "file_size" in record:
+                    ET.SubElement(item, "FileSize").text = record.get("file_size")
+        
+        return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
 
 
 def parse_xml_message(xml_str: str) -> Dict[str, Any]:

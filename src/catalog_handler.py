@@ -136,3 +136,101 @@ class CatalogHandler:
         except Exception as e:
             logger.error(f"Error handling device status query: {e}", exc_info=True)
             return None
+    
+    def handle_record_info_query(self, xml_message: str) -> str:
+        """
+        处理录像信息查询请求（NVR/DVR 功能）
+        
+        Args:
+            xml_message: XML 查询消息
+            
+        Returns:
+            str: XML 响应消息
+        """
+        try:
+            parsed = parse_xml_message(xml_message)
+            sn = parsed.get("SN", "1")
+            start_time = parsed.get("StartTime", "")
+            end_time = parsed.get("EndTime", "")
+            
+            logger.info(f"Processing RecordInfo query with SN={sn}, StartTime={start_time}, EndTime={end_time}")
+            
+            # 检查设备类型，只有 NVR/DVR 支持录像查询
+            if self.device_type not in ["NVR", "DVR"]:
+                logger.warning(f"Device type {self.device_type} does not support RecordInfo query")
+                # 返回空录像列表
+                response = XMLBuilder.build_record_info_response(
+                    device_id=self.device_id,
+                    sn=sn,
+                    records=[]
+                )
+            else:
+                # 为 NVR/DVR 生成模拟录像文件列表
+                # 在实际应用中，这里应该查询真实的录像文件
+                records = self._generate_mock_records(start_time, end_time)
+                response = XMLBuilder.build_record_info_response(
+                    device_id=self.device_id,
+                    sn=sn,
+                    records=records
+                )
+            
+            logger.debug(f"RecordInfo response: {response}")
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error handling record info query: {e}", exc_info=True)
+            return None
+    
+    def _generate_mock_records(self, start_time: str, end_time: str) -> list:
+        """
+        生成模拟录像文件记录（用于测试）
+        
+        Args:
+            start_time: 开始时间
+            end_time: 结束时间
+            
+        Returns:
+            list: 录像文件列表
+        """
+        from datetime import datetime, timedelta
+        
+        # 解析时间
+        try:
+            if start_time and end_time:
+                start_dt = datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S")
+                end_dt = datetime.strptime(end_time, "%Y-%m-%dT%H:%M:%S")
+            else:
+                # 如果没有指定时间，返回最近24小时的模拟录像
+                end_dt = datetime.now()
+                start_dt = end_dt - timedelta(hours=24)
+        except:
+            # 时间解析失败，返回空列表
+            return []
+        
+        # 生成模拟录像文件（每小时一个文件）
+        records = []
+        current = start_dt
+        file_num = 1
+        
+        while current < end_dt and file_num <= 10:  # 最多返回10个文件
+            record_end = min(current + timedelta(hours=1), end_dt)
+            
+            # 为每个通道生成录像
+            for channel in self.channels:
+                record = {
+                    "device_id": channel.get("channel_id"),
+                    "name": f"{channel.get('name', 'Channel')}_Record_{file_num}",
+                    "file_path": f"/record/{current.strftime('%Y%m%d')}/{channel.get('channel_id')}/{file_num}.mp4",
+                    "start_time": current.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "end_time": record_end.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "secrecy": "0",
+                    "type": "time",  # time: 定时录像, alarm: 报警录像, manual: 手动录像
+                    "file_size": "102400"  # 100MB（模拟）
+                }
+                records.append(record)
+            
+            current = record_end
+            file_num += 1
+        
+        logger.info(f"Generated {len(records)} mock record files for device {self.device_id}")
+        return records
