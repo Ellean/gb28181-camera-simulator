@@ -29,6 +29,18 @@
 - Docker 和 Docker Compose
 - GB28181 平台服务器（用于接入测试）
 
+### 快速验证配置
+
+使用配置验证脚本检查配置是否正确：
+```bash
+python3 scripts/validate_config.py
+```
+
+该脚本会检查：
+- ✅ 环境变量配置
+- ✅ 设备配置文件
+- ✅ 测试视频文件
+
 ### 安装步骤
 
 1. **克隆仓库**
@@ -60,7 +72,18 @@ SIP_DOMAIN=3402000000              # SIP 域
 cp /path/to/your/video.mp4 media/sample.mp4
 ```
 
-或使用 FFmpeg 生成测试视频：
+或使用提供的脚本生成测试视频：
+```bash
+# 需要先安装 FFmpeg
+sudo apt-get install ffmpeg  # Ubuntu/Debian
+# 或
+brew install ffmpeg  # macOS
+
+# 运行脚本生成测试视频
+./scripts/generate_test_video.sh
+```
+
+手动生成：
 ```bash
 ffmpeg -f lavfi -i testsrc=duration=60:size=1280x720:rate=25 \
   -vcodec libx264 -pix_fmt yuv420p media/sample.mp4
@@ -317,6 +340,9 @@ gb28181-camera-simulator/
 ├── README.md                  # 项目文档
 ├── config/
 │   └── devices.yaml          # 设备配置文件
+├── scripts/
+│   ├── generate_test_video.sh # 生成测试视频脚本
+│   └── validate_config.py    # 配置验证脚本
 ├── src/
 │   ├── __init__.py
 │   ├── main.py               # 程序入口
