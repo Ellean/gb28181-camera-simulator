@@ -55,6 +55,12 @@ def validate_devices_config():
     
     print(f"  ✓ 配置文件存在: {config_path}")
     
+    # 支持的设备类型
+    supported_device_types = [
+        "DVR", "NVR", "报警控制器", "摄像机", "IPC", "显示器",
+        "报警输入设备", "报警输出设备", "语音输入设备", "语音输出设备", "移动传输设备"
+    ]
+    
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
@@ -79,6 +85,14 @@ def validate_devices_config():
                         print(f"    ✓ {field}: ****")
                     else:
                         print(f"    ✓ {field}: {device[field]}")
+            
+            # 验证设备类型（可选字段）
+            device_type = device.get('device_type', 'IPC')
+            if device_type not in supported_device_types:
+                print(f"    ⚠ 设备类型 '{device_type}' 不在支持列表中，将使用默认类型 IPC")
+                print(f"    支持的设备类型: {', '.join(supported_device_types)}")
+            else:
+                print(f"    ✓ device_type: {device_type}")
             
             channels = device.get('channels', [])
             if not channels:
