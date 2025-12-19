@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   gb28181-simulator:
+    image: younntone/gb28181-simulator:latest
     build: .
     container_name: gb28181-camera-simulator
     # network_mode: host
