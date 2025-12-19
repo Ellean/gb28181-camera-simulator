@@ -7,6 +7,7 @@ import threading
 import os
 import yaml
 import re
+import secrets
 from flask import Flask, render_template_string, jsonify, request
 from typing import List, Dict, Any
 from functools import wraps
@@ -25,9 +26,9 @@ def require_auth(f):
         if not auth_token:
             return f(*args, **kwargs)
         
-        # 检查请求头中的令牌
+        # 检查请求头中的令牌（使用恒定时间比较防止时序攻击）
         provided_token = request.headers.get('X-Auth-Token', '')
-        if provided_token != auth_token:
+        if not secrets.compare_digest(provided_token, auth_token):
             return jsonify({'success': False, 'error': 'Unauthorized'}), 401
         
         return f(*args, **kwargs)
@@ -1093,8 +1094,15 @@ HTML_TEMPLATE = """
             }
         }
 
-        // 表单提交处理
+        // 页面加载时执行（合并所有初始化逻辑）
         document.addEventListener('DOMContentLoaded', function() {
+            // 加载初始设备状态
+            loadDevices();
+            
+            // 每5秒自动刷新设备状态
+            refreshInterval = setInterval(loadDevices, 5000);
+            
+            // 设置表单提交处理
             document.getElementById('deviceForm').addEventListener('submit', function(e) {
                 e.preventDefault();
                 
@@ -1111,13 +1119,6 @@ HTML_TEMPLATE = """
                 
                 saveDevice(formData);
             });
-        });
-
-        // 页面加载时执行
-        document.addEventListener('DOMContentLoaded', function() {
-            loadDevices();
-            // 每5秒自动刷新
-            refreshInterval = setInterval(loadDevices, 5000);
         });
 
         // 页面卸载时清理
