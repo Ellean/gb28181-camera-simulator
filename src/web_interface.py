@@ -1038,7 +1038,7 @@ HTML_TEMPLATE = """
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert(data.message + '\n\n' + (data.note || ''));
+                    alert(data.message + ' ' + (data.note || ''));
                     closeModal();
                     loadConfigs();
                 } else {
@@ -1076,7 +1076,7 @@ HTML_TEMPLATE = """
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert(data.message + '\n\n' + (data.note || ''));
+                    alert(data.message + ' ' + (data.note || ''));
                     loadConfigs();
                 } else {
                     if (response.status === 401) {
