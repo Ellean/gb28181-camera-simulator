@@ -707,3 +707,7 @@ class SIPClient:
             
         except Exception as e:
             logger.error(f"Error sending keepalive: {e}", exc_info=True)
+    
+    def send_keepalive(self):
+        """公开方法：发送心跳消息（用于 Web 界面控制）"""
+        self._send_keepalive()

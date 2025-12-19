@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 from sip_client import SIPClient
 from media_server import MediaServer
+from web_interface import WebInterface
 
 # 配置日志
 def setup_logging(log_level: str, log_dir: str):
@@ -41,6 +42,7 @@ class GB28181Simulator:
         """初始化模拟器"""
         self.clients: List[SIPClient] = []
         self.media_server: MediaServer = None
+        self.web_interface: WebInterface = None
         self.running = False
         
         # 加载配置
@@ -53,6 +55,10 @@ class GB28181Simulator:
         
         self.logger = logging.getLogger(__name__)
         self.logger.info("GB28181 Camera Simulator Starting...")
+        
+        # Web 界面配置
+        self.web_port = int(os.getenv('WEB_PORT', 8000))
+        self.enable_web = os.getenv('ENABLE_WEB', 'true').lower() in ['true', '1', 'yes']
         
         # SIP 服务器配置
         self.server_config = {
@@ -134,6 +140,16 @@ class GB28181Simulator:
                 sys.exit(1)
             
             self.logger.info(f"Simulator started with {len(self.clients)} active device(s)")
+            
+            # 启动 Web 界面
+            if self.enable_web:
+                try:
+                    self.web_interface = WebInterface(self, port=self.web_port)
+                    self.web_interface.start()
+                    self.logger.info(f"Web interface available at http://0.0.0.0:{self.web_port}")
+                except Exception as e:
+                    self.logger.error(f"Error starting web interface: {e}", exc_info=True)
+                    self.logger.warning("Continuing without web interface")
             
             # 保持运行
             self._run()

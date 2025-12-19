@@ -5,6 +5,7 @@
 import logging
 from typing import Dict, Any, List
 from xml_builder import XMLBuilder, parse_xml_message
+from gb28181_protocol import get_device_type_code, extract_device_type_from_id
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,9 @@ class CatalogHandler:
         self.model = device_config.get("model", "SC-2000")
         self.firmware = device_config.get("firmware", "V1.0.0")
         self.channels = device_config.get("channels", [])
+        self.device_type = device_config.get("device_type", "IPC")  # 默认为网络摄像机
         
-        logger.info(f"CatalogHandler initialized for device {self.device_id}")
+        logger.info(f"CatalogHandler initialized for device {self.device_id}, type: {self.device_type}")
     
     def handle_catalog_query(self, xml_message: str) -> str:
         """
