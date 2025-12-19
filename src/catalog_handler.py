@@ -4,6 +4,7 @@
 """
 import logging
 from typing import Dict, Any, List
+from datetime import datetime, timedelta
 from xml_builder import XMLBuilder, parse_xml_message
 from gb28181_protocol import get_device_type_code, extract_device_type_from_id
 
@@ -192,8 +193,6 @@ class CatalogHandler:
         Returns:
             list: 录像文件列表
         """
-        from datetime import datetime, timedelta
-        
         # 解析时间
         try:
             if start_time and end_time:
@@ -203,8 +202,9 @@ class CatalogHandler:
                 # 如果没有指定时间，返回最近24小时的模拟录像
                 end_dt = datetime.now()
                 start_dt = end_dt - timedelta(hours=24)
-        except:
+        except (ValueError, TypeError) as e:
             # 时间解析失败，返回空列表
+            logger.warning(f"Failed to parse time range: {e}")
             return []
         
         # 生成模拟录像文件（每小时一个文件）

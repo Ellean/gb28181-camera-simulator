@@ -182,8 +182,8 @@ class XMLBuilder:
                 ET.SubElement(item, "Secrecy").text = record.get("secrecy", "0")
                 ET.SubElement(item, "Type").text = record.get("type", "time")
                 ET.SubElement(item, "RecorderID").text = device_id
-                if "file_size" in record:
-                    ET.SubElement(item, "FileSize").text = record.get("file_size")
+                # FileSize is always included for mock records
+                ET.SubElement(item, "FileSize").text = record.get("file_size", "0")
         
         return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
 
