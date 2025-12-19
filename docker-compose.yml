@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  gb28181-simulator:
+    build: .
+    container_name: gb28181-camera-simulator
+    network_mode: host
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./config:/app/config
+      - ./media:/app/media
+      - ./logs:/app/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

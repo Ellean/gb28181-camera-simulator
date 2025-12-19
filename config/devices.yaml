@@ -1,0 +1,24 @@
+devices:
+  - device_id: "34020000001320000001"
+    name: "模拟摄像头-1"
+    manufacturer: "SimCamera"
+    model: "SC-2000"
+    firmware: "V1.0.0"
+    channels:
+      - channel_id: "34020000001320000001"
+        name: "主码流"
+        ptz_enabled: true
+    sip_user: "34020000001320000001"
+    sip_password: "12345678"
+    
+  - device_id: "34020000001320000002"
+    name: "模拟摄像头-2"
+    manufacturer: "SimCamera"
+    model: "SC-2000"
+    firmware: "V1.0.0"
+    channels:
+      - channel_id: "34020000001320000002"
+        name: "主码流"
+        ptz_enabled: true
+    sip_user: "34020000001320000002"
+    sip_password: "12345678"
