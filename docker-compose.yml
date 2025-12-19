@@ -4,7 +4,7 @@ services:
   gb28181-simulator:
     build: .
     container_name: gb28181-camera-simulator
-    network_mode: host
+    # network_mode: host
     restart: unless-stopped
     env_file:
       - .env
@@ -14,6 +14,10 @@ services:
       - ./logs:/app/logs
     environment:
       - PYTHONUNBUFFERED=1
+    ports:
+      - "8000:8000"
+      - "5060:5060/udp"
+      - "30000-30100:30000-30100/udp"
     logging:
       driver: "json-file"
       options:
