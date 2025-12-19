@@ -75,7 +75,9 @@ class MediaServer:
                 
                 # 目标地址
                 if transport.upper() == "TCP":
-                    cmd.append(f"rtp://{target_ip}:{target_port}?rtcpport={target_port}")
+                    # TCP模式：RTCP使用下一个端口
+                    rtcp_port = target_port + 1
+                    cmd.append(f"rtp://{target_ip}:{target_port}?rtcpport={rtcp_port}")
                 else:
                     cmd.append(f"rtp://{target_ip}:{target_port}")
                 

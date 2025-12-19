@@ -29,7 +29,7 @@ class XMLBuilder:
         ET.SubElement(root, "DeviceID").text = device_id
         ET.SubElement(root, "Status").text = status
         
-        return '<?xml version="1.0" encoding="GB2312"?>\n' + ET.tostring(root, encoding="unicode")
+        return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
     
     @staticmethod
     def build_catalog_response(device_id: str, sn: str, channels: List[Dict[str, Any]]) -> str:
@@ -70,7 +70,7 @@ class XMLBuilder:
             ET.SubElement(item, "Secrecy").text = "0"
             ET.SubElement(item, "Status").text = "ON"
         
-        return '<?xml version="1.0" encoding="GB2312"?>\n' + ET.tostring(root, encoding="unicode")
+        return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
     
     @staticmethod
     def build_device_info_response(device_id: str, sn: str, device_info: Dict[str, Any]) -> str:
@@ -96,7 +96,7 @@ class XMLBuilder:
         ET.SubElement(root, "Firmware").text = device_info.get("firmware", "V1.0.0")
         ET.SubElement(root, "Channel").text = str(device_info.get("channel_count", 1))
         
-        return '<?xml version="1.0" encoding="GB2312"?>\n' + ET.tostring(root, encoding="unicode")
+        return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
     
     @staticmethod
     def build_device_status_response(device_id: str, sn: str, status: str = "ON") -> str:
@@ -122,7 +122,7 @@ class XMLBuilder:
         ET.SubElement(root, "Encode").text = "ON"
         ET.SubElement(root, "Record").text = "OFF"
         
-        return '<?xml version="1.0" encoding="GB2312"?>\n' + ET.tostring(root, encoding="unicode")
+        return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
     
     @staticmethod
     def build_device_control_response(device_id: str, sn: str, result: str = "OK") -> str:
@@ -144,7 +144,7 @@ class XMLBuilder:
         ET.SubElement(root, "DeviceID").text = device_id
         ET.SubElement(root, "Result").text = result
         
-        return '<?xml version="1.0" encoding="GB2312"?>\n' + ET.tostring(root, encoding="unicode")
+        return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
 
 
 def parse_xml_message(xml_str: str) -> Dict[str, Any]:

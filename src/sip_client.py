@@ -47,7 +47,7 @@ class SIPClient:
         self.domain = server_config.get("domain")
         
         self.local_ip = get_local_ip()
-        self.local_port = 5060
+        self.local_port = self._find_available_port(5060)
         
         self.media_server = media_server
         
@@ -74,6 +74,35 @@ class SIPClient:
         self.keepalive_thread = None
         
         logger.info(f"SIPClient initialized for device {self.device_id}")
+    
+    def _find_available_port(self, preferred_port: int) -> int:
+        """
+        查找可用端口
+        
+        Args:
+            preferred_port: 首选端口
+            
+        Returns:
+            int: 可用端口
+        """
+        import socket
+        
+        # 尝试首选端口
+        for port in range(preferred_port, preferred_port + 100):
+            try:
+                test_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                test_sock.bind((self.local_ip, port))
+                test_sock.close()
+                return port
+            except OSError:
+                continue
+        
+        # 如果都不可用，使用0让系统分配
+        test_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        test_sock.bind((self.local_ip, 0))
+        port = test_sock.getsockname()[1]
+        test_sock.close()
+        return port
     
     def start(self) -> bool:
         """

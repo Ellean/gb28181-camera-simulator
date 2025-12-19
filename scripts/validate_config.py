@@ -8,8 +8,13 @@ import sys
 import yaml
 from pathlib import Path
 
-# 添加 src 到路径
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+# 设置 PYTHONPATH 环境变量而不是修改 sys.path
+project_root = Path(__file__).parent.parent
+src_path = project_root / 'src'
+if 'PYTHONPATH' in os.environ:
+    os.environ['PYTHONPATH'] = f"{src_path}:{os.environ['PYTHONPATH']}"
+else:
+    os.environ['PYTHONPATH'] = str(src_path)
 
 def validate_env():
     """验证环境变量配置"""

@@ -98,9 +98,12 @@ def format_sip_uri(user: str, host: str, port: Optional[int] = None) -> str:
     return f"sip:{user}@{host}"
 
 
-def get_local_ip() -> str:
+def get_local_ip(fallback: str = "127.0.0.1") -> str:
     """
     获取本地 IP 地址
+    
+    Args:
+        fallback: 无法检测时的回退 IP
     
     Returns:
         str: 本地 IP
@@ -109,10 +112,20 @@ def get_local_ip() -> str:
     try:
         # 创建一个 UDP socket
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0.1)
         # 连接到一个外部地址（不需要真的连接）
-        s.connect(("8.8.8.8", 80))
+        # 使用私有网络地址避免实际网络请求
+        s.connect(("10.255.255.255", 1))
         local_ip = s.getsockname()[0]
         s.close()
         return local_ip
     except Exception:
-        return "127.0.0.1"
+        # 如果失败，尝试获取主机名对应的IP
+        try:
+            hostname = socket.gethostname()
+            local_ip = socket.gethostbyname(hostname)
+            if local_ip and local_ip != "127.0.0.1":
+                return local_ip
+        except Exception:
+            pass
+        return fallback

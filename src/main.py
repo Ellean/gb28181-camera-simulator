@@ -6,6 +6,7 @@ import os
 import sys
 import logging
 import signal
+import time
 import yaml
 from typing import List
 from dotenv import load_dotenv
@@ -164,8 +165,6 @@ class GB28181Simulator:
     
     def _run(self):
         """主运行循环"""
-        import time
-        
         self.logger.info("Simulator running... Press Ctrl+C to stop")
         
         try:
