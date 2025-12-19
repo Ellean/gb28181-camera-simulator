@@ -145,6 +145,77 @@ class XMLBuilder:
         ET.SubElement(root, "Result").text = result
         
         return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
+    
+    @staticmethod
+    def build_record_info_response(device_id: str, sn: str, records: List[Dict[str, Any]]) -> str:
+        """
+        构建录像文件查询响应 (NVR/DVR 功能)
+        
+        Args:
+            device_id: 设备ID
+            sn: 命令序列号
+            records: 录像文件列表
+            
+        Returns:
+            str: XML 字符串
+        """
+        root = ET.Element("Response")
+        
+        ET.SubElement(root, "CmdType").text = "RecordInfo"
+        ET.SubElement(root, "SN").text = sn
+        ET.SubElement(root, "DeviceID").text = device_id
+        ET.SubElement(root, "Name").text = "RecordInfo"
+        ET.SubElement(root, "SumNum").text = str(len(records))
+        
+        if records:
+            record_list = ET.SubElement(root, "RecordList")
+            record_list.set("Num", str(len(records)))
+            
+            for record in records:
+                item = ET.SubElement(record_list, "Item")
+                ET.SubElement(item, "DeviceID").text = record.get("device_id", device_id)
+                ET.SubElement(item, "Name").text = record.get("name", "Record")
+                ET.SubElement(item, "FilePath").text = record.get("file_path", "")
+                ET.SubElement(item, "Address").text = "Address"
+                ET.SubElement(item, "StartTime").text = record.get("start_time", "")
+                ET.SubElement(item, "EndTime").text = record.get("end_time", "")
+                ET.SubElement(item, "Secrecy").text = record.get("secrecy", "0")
+                ET.SubElement(item, "Type").text = record.get("type", "time")
+                ET.SubElement(item, "RecorderID").text = device_id
+                # FileSize is always included for mock records
+                ET.SubElement(item, "FileSize").text = record.get("file_size", "0")
+        
+        return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
+    
+    @staticmethod
+    def build_alarm_notification(device_id: str, alarm_info: Dict[str, Any]) -> str:
+        """
+        构建报警通知消息（用于报警类设备）
+        
+        Args:
+            device_id: 设备ID
+            alarm_info: 报警信息字典
+            
+        Returns:
+            str: XML 字符串
+        """
+        root = ET.Element("Notify")
+        
+        ET.SubElement(root, "CmdType").text = "Alarm"
+        ET.SubElement(root, "SN").text = str(int(datetime.now().timestamp() * 1000))
+        ET.SubElement(root, "DeviceID").text = device_id
+        ET.SubElement(root, "AlarmPriority").text = str(alarm_info.get("alarm_priority", 3))
+        ET.SubElement(root, "AlarmMethod").text = alarm_info.get("alarm_method", "1")
+        # Use current time if alarm_time not provided
+        alarm_time = alarm_info.get("alarm_time", datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
+        ET.SubElement(root, "AlarmTime").text = alarm_time
+        ET.SubElement(root, "AlarmDescription").text = alarm_info.get("alarm_description", "Alarm")
+        
+        # 可选：添加报警类型
+        if "alarm_type" in alarm_info:
+            ET.SubElement(root, "AlarmType").text = alarm_info["alarm_type"]
+        
+        return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
 
 
 def parse_xml_message(xml_str: str) -> Dict[str, Any]:

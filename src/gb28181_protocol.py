@@ -41,6 +41,56 @@ XML_NAMESPACE = 'http://www.w3.org/2001/XMLSchema-instance'
 DEVICE_STATUS_ON = "ON"
 DEVICE_STATUS_OFF = "OFF"
 
+# GB28181 设备类型编码（设备ID第11-13位）
+DEVICE_TYPE_DVR = "111"           # 数字视频录像机 (DVR)
+DEVICE_TYPE_NVR = "118"           # 网络视频录像机 (NVR)
+DEVICE_TYPE_ALARM_CONTROLLER = "117"  # 报警控制器
+DEVICE_TYPE_CAMERA = "132"        # 摄像机
+DEVICE_TYPE_IPC = "215"           # 网络摄像机 (IPC)
+DEVICE_TYPE_DISPLAY = "131"       # 显示器
+DEVICE_TYPE_ALARM_INPUT = "134"   # 报警输入设备
+DEVICE_TYPE_ALARM_OUTPUT = "135"  # 报警输出设备
+DEVICE_TYPE_VOICE_INPUT = "136"   # 语音输入设备
+DEVICE_TYPE_VOICE_OUTPUT = "137"  # 语音输出设备
+DEVICE_TYPE_MOBILE = "138"        # 移动传输设备
+
+# 设备类型名称映射
+DEVICE_TYPE_NAMES = {
+    "DVR": DEVICE_TYPE_DVR,
+    "NVR": DEVICE_TYPE_NVR,
+    "报警控制器": DEVICE_TYPE_ALARM_CONTROLLER,
+    "摄像机": DEVICE_TYPE_CAMERA,
+    "IPC": DEVICE_TYPE_IPC,
+    "显示器": DEVICE_TYPE_DISPLAY,
+    "报警输入设备": DEVICE_TYPE_ALARM_INPUT,
+    "报警输出设备": DEVICE_TYPE_ALARM_OUTPUT,
+    "语音输入设备": DEVICE_TYPE_VOICE_INPUT,
+    "语音输出设备": DEVICE_TYPE_VOICE_OUTPUT,
+    "移动传输设备": DEVICE_TYPE_MOBILE,
+}
+
+# 设备类型编码到名称的反向映射
+DEVICE_TYPE_CODE_TO_NAME = {
+    DEVICE_TYPE_DVR: "DVR",
+    DEVICE_TYPE_NVR: "NVR",
+    DEVICE_TYPE_ALARM_CONTROLLER: "报警控制器",
+    DEVICE_TYPE_CAMERA: "摄像机",
+    DEVICE_TYPE_IPC: "IPC",
+    DEVICE_TYPE_DISPLAY: "显示器",
+    DEVICE_TYPE_ALARM_INPUT: "报警输入设备",
+    DEVICE_TYPE_ALARM_OUTPUT: "报警输出设备",
+    DEVICE_TYPE_VOICE_INPUT: "语音输入设备",
+    DEVICE_TYPE_VOICE_OUTPUT: "语音输出设备",
+    DEVICE_TYPE_MOBILE: "移动传输设备",
+}
+
+# 设备类型分类（用于功能判断）
+VIDEO_DEVICE_TYPES = ["IPC", "摄像机", "Camera", "DVR", "NVR", "移动传输设备"]
+RECORDING_DEVICE_TYPES = ["DVR", "NVR"]
+ALARM_DEVICE_TYPES = ["报警控制器", "报警输入设备", "报警输出设备"]
+AUDIO_DEVICE_TYPES = ["语音输入设备", "语音输出设备"]
+DISPLAY_DEVICE_TYPES = ["显示器"]
+
 # 媒体传输协议
 TRANSPORT_UDP = "UDP"
 TRANSPORT_TCP_PASSIVE = "TCP/RTP/AVP"
@@ -134,3 +184,44 @@ def calculate_checksum(data: str) -> str:
     for i in range(0, len(data), 2):
         checksum += int(data[i:i+2], 16)
     return format(checksum % 256, '02X')
+
+
+def get_device_type_code(device_type: str) -> str:
+    """
+    获取设备类型编码
+    
+    Args:
+        device_type: 设备类型名称
+        
+    Returns:
+        str: 设备类型编码，如果未找到则返回 IPC 类型（默认）
+    """
+    return DEVICE_TYPE_NAMES.get(device_type, DEVICE_TYPE_IPC)
+
+
+def extract_device_type_from_id(device_id: str) -> str:
+    """
+    从设备ID中提取设备类型编码
+    
+    Args:
+        device_id: 20位设备ID
+        
+    Returns:
+        str: 设备类型编码(3位)，如果无效返回空字符串
+    """
+    if len(device_id) >= 13:
+        return device_id[10:13]
+    return ""
+
+
+def get_device_type_name(type_code: str) -> str:
+    """
+    根据类型编码获取设备类型名称
+    
+    Args:
+        type_code: 设备类型编码
+        
+    Returns:
+        str: 设备类型名称
+    """
+    return DEVICE_TYPE_CODE_TO_NAME.get(type_code, "Unknown")
