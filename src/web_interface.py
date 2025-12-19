@@ -13,23 +13,25 @@ logger = logging.getLogger(__name__)
 class WebInterface:
     """Web 控制界面"""
     
-    def __init__(self, simulator_instance, port: int = 8000):
+    def __init__(self, simulator_instance, port: int = 8000, host: str = '0.0.0.0'):
         """
         初始化 Web 界面
         
         Args:
             simulator_instance: GB28181Simulator 实例
             port: Web 服务器端口
+            host: Web 服务器绑定地址 (默认 0.0.0.0 监听所有接口)
         """
         self.simulator = simulator_instance
         self.port = port
+        self.host = host
         self.app = Flask(__name__)
         self.server_thread = None
         
         # 设置路由
         self._setup_routes()
         
-        logger.info(f"Web interface initialized on port {port}")
+        logger.info(f"Web interface initialized on {host}:{port}")
     
     def _setup_routes(self):
         """设置路由"""
@@ -133,11 +135,11 @@ class WebInterface:
         """启动 Web 服务器"""
         def run_server():
             # 禁用 Flask 开发服务器的自动重载
-            self.app.run(host='0.0.0.0', port=self.port, debug=False, use_reloader=False)
+            self.app.run(host=self.host, port=self.port, debug=False, use_reloader=False)
         
         self.server_thread = threading.Thread(target=run_server, daemon=True)
         self.server_thread.start()
-        logger.info(f"Web interface started at http://0.0.0.0:{self.port}")
+        logger.info(f"Web interface started at http://{self.host}:{self.port}")
 
 
 # HTML 模板

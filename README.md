@@ -149,6 +149,7 @@ tail -f logs/simulator.log
 | `RTP_PORT_START` | RTP 端口范围起始 | `30000` |
 | `RTP_PORT_END` | RTP 端口范围结束 | `30100` |
 | `ENABLE_WEB` | 是否启用 Web 界面 | `true` / `false` |
+| `WEB_HOST` | Web 界面绑定地址 | `0.0.0.0` (所有接口) / `127.0.0.1` (仅本地) |
 | `WEB_PORT` | Web 界面端口 | `8000` |
 | `LOG_LEVEL` | 日志级别 | `INFO` / `DEBUG` |
 | `LOG_DIR` | 日志目录 | `logs` |

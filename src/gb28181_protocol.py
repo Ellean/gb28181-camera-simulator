@@ -187,9 +187,9 @@ def get_device_type_code(device_type: str) -> str:
         device_type: 设备类型名称
         
     Returns:
-        str: 设备类型编码，如果未找到则返回摄像机类型
+        str: 设备类型编码，如果未找到则返回 IPC 类型（默认）
     """
-    return DEVICE_TYPE_NAMES.get(device_type, DEVICE_TYPE_CAMERA)
+    return DEVICE_TYPE_NAMES.get(device_type, DEVICE_TYPE_IPC)
 
 
 def extract_device_type_from_id(device_id: str) -> str:

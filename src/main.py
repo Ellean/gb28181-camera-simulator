@@ -58,6 +58,7 @@ class GB28181Simulator:
         
         # Web 界面配置
         self.web_port = int(os.getenv('WEB_PORT', 8000))
+        self.web_host = os.getenv('WEB_HOST', '0.0.0.0')
         self.enable_web = os.getenv('ENABLE_WEB', 'true').lower() in ['true', '1', 'yes']
         
         # SIP 服务器配置
@@ -144,9 +145,9 @@ class GB28181Simulator:
             # 启动 Web 界面
             if self.enable_web:
                 try:
-                    self.web_interface = WebInterface(self, port=self.web_port)
+                    self.web_interface = WebInterface(self, port=self.web_port, host=self.web_host)
                     self.web_interface.start()
-                    self.logger.info(f"Web interface available at http://0.0.0.0:{self.web_port}")
+                    self.logger.info(f"Web interface available at http://{self.web_host}:{self.web_port}")
                 except Exception as e:
                     self.logger.error(f"Error starting web interface: {e}", exc_info=True)
                     self.logger.warning("Continuing without web interface")
